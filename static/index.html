@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Chat</title>
+</head>
+<body>
+    <h1>Local Network Chat</h1>
+    <div>
+        <input id="message" type="text" placeholder="Enter your message" />
+        <button id="send">Send</button>
+    </div>
+    <h2>Messages</h2>
+    <ul id="messages"></ul>
+
+    <script>
+        const socket = new WebSocket(`ws://${window.location.hostname}:8080/ws`);
+
+        socket.onopen = () => {
+            console.log("Connected to the server");
+        };
+
+        socket.onmessage = (event) => {
+            const messages = document.getElementById("messages");
+            const li = document.createElement("li");
+            li.textContent = event.data;
+            messages.appendChild(li);
+        };
+
+        socket.onclose = () => {
+            console.log("Disconnected from the server");
+        };
+
+        document.getElementById("send").addEventListener("click", () => {
+            const message = document.getElementById("message").value;
+            socket.send(message);
+            document.getElementById("message").value = "";
+        });
+    </script>
+</body>
+</html>
