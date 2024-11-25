@@ -70,6 +70,15 @@ func NewServer() *Server {
 func (s *Server) AddClient(client *Client) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	// Ensure that the nickname is unique
+	for _, existingClient := range s.clients {
+		if existingClient.Device == client.Device {
+			fmt.Printf("Device with name %s already connected\n", client.Device)
+			return
+		}
+	}
+
 	s.clients[client.ID] = client
 	s.deviceNameToClient[client.Device] = client
 	fmt.Printf("Client connected: %s (%s)\n", client.ID, client.Device)
@@ -89,7 +98,7 @@ func (s *Server) RemoveClient(clientID string) {
 }
 
 func (s *Server) BroadcastDeviceList() {
-	deviceList := make([]string, 0)
+	deviceList := []string{"ALL"} // Include "ALL" group
 	for _, client := range s.clients {
 		deviceList = append(deviceList, client.Device)
 	}
@@ -105,11 +114,15 @@ func (s *Server) BroadcastDeviceList() {
 	}
 }
 
+// SaveMessage inserts a new message into the database
 func (s *Server) SaveMessage(msg Message) {
+	now := time.Now().Format(time.RFC3339)
+
+	// Insert message into the database, SQLite will generate the messageId automatically
 	_, err := s.db.Exec(`
-		INSERT INTO messages (sender, receiver, content, timestamp)
-		VALUES (?, ?, ?, ?)
-	`, msg.From, msg.To, msg.Content, msg.Timestamp)
+        INSERT INTO messages (sender, receiver, content, timestamp)
+        VALUES (?, ?, ?, ?)
+    `, msg.From, msg.To, msg.Content, now)
 	if err != nil {
 		fmt.Printf("Failed to save message: %v\n", err)
 	}

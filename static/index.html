@@ -1,13 +1,51 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Local Chat</title>
-</head>
-<body>
+    <style>
+      #messages {
+        max-height: 70vh;
+        overflow-y: scroll;
+        margin-bottom: 20px;
+      }
+
+      #device-list li {
+        margin: 10px 0;
+        padding: 8px;
+        background-color: #ddd;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+
+      #messages li {
+        padding: 10px;
+        margin: 5px 0;
+        border-radius: 10px;
+        background-color: #f1f1f1;
+      }
+
+      #send {
+        padding: 10px 20px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+
+      #send:hover {
+        background-color: #45a049;
+      }
+    </style>
+  </head>
+  <body>
     <h1>Local Network Chat</h1>
     <div>
+      <span id="nickname"></span>
+    </div>
+    <!-- <div>
         <input id="message" type="text" placeholder="Enter your message" />
         <select id="target">
             <option value="ALL">ALL</option>
@@ -15,58 +53,99 @@
         <button id="send">Send</button>
     </div>
     <h2>Messages</h2>
-    <ul id="messages"></ul>
+    <ul id="messages"></ul> -->
+
+    <div style="display: flex; height: 100vh">
+      <!-- Left Panel: Device List -->
+      <div style="width: 25%; background-color: #f1f1f1; padding: 20px">
+        <h2>Available Devices</h2>
+        <ul id="device-list" style="list-style-type: none; padding: 0"></ul>
+      </div>
+
+      <!-- Right Panel: Chat Window -->
+      <div style="width: 75%; background-color: #ffffff; padding: 20px">
+        <h2>Chat</h2>
+        <ul id="messages" style="list-style-type: none; padding: 0"></ul>
+        <input id="message" type="text" placeholder="Enter your message" />
+        <select id="target">
+          <option value="ALL">ALL</option>
+        </select>
+        <button id="send">Send</button>
+      </div>
+    </div>
 
     <script>
-        const socket = new WebSocket(`ws://${window.location.hostname}:8080/ws`);
+      // Check if nickname exists in localStorage
+      let nickname = localStorage.getItem("nickname");
 
-        socket.onopen = () => {
-            console.log("Connected to the server");
-        };
+      if (!nickname) {
+        // If no nickname is found, generate a new one
+        const names = [
+          "User A",
+          "User B",
+          "User C",
+          "User D",
+          "Charlie",
+          "Tommy",
+          "Spidey",
+        ];
+        nickname = names[Math.floor(Math.random() * names.length)];
+        localStorage.setItem("nickname", nickname); // Save the nickname to localStorage
+      }
 
-        socket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
+      // Set nickname on the UI
+      document.getElementById(
+        "nickname"
+      ).textContent = `Your nickname: ${nickname}`;
 
-            if (data.type === "device_list") {
-                const target = document.getElementById("target");
-                target.innerHTML = '<option value="ALL">ALL</option>';
-                data.devices.forEach((device) => {
-                    const option = document.createElement("option");
-                    option.value = device;
+      // WebSocket connection setup
+      const socket = new WebSocket(`ws://${window.location.hostname}:8080/ws`);
+
+      socket.onopen = () => {
+        console.log("Connected to the server");
+      };
+
+      socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "device_list") {
+          const target = document.getElementById("target");
+          target.innerHTML = ""; // Clear the current list
+          const deviceList = document.getElementById("device-list");
+          deviceList.innerHTML = ""; // Clear the current list
+          data.devices.forEach((device) => {
+            const option = document.createElement("option");
+            option.value = device;
                     option.textContent = device;
                     target.appendChild(option);
-                });
-            } else if (data.from) {
-                const messages = document.getElementById("messages");
-                const li = document.createElement("li");
-                li.textContent = `${data.from} to ${data.to}: ${data.content}`;
-                messages.appendChild(li);
-            }
-        };
+            const li = document.createElement("li");
+            li.textContent = device;
+            li.onclick = () => {
+              document.getElementById("target").value = device; // Set target when clicked
+              console.log("Target set to", device);
+            };
+            deviceList.appendChild(li);
+          });
+        } else if (data.from) {
+          const messages = document.getElementById("messages");
+          const li = document.createElement("li");
+          li.textContent = `${data.from} to ${data.to}: ${data.content}`;
+          messages.appendChild(li);
+        }
+      };
 
-        socket.onclose = () => {
-            console.log("Disconnected from the server");
-        };
+      socket.onclose = () => {
+        console.log("Disconnected from the server");
+      };
 
-        document.getElementById("send").addEventListener("click", () => {
-            const message = document.getElementById("message").value;
-            const target = document.getElementById("target").value;
-            socket.send(JSON.stringify({ from: "ME", to: target, content: message }));
-            document.getElementById("message").value = "";
-        });
-
-        function displayMessage(message) {
-        const messagesDiv = document.getElementById("messages");
-        const messageElement = document.createElement("div");
-        messageElement.classList.add("message");
-
-        const sender = message.from === deviceName ? "You" : message.from;
-        const receiver = message.to === "ALL" ? "Everyone" : message.to;
-
-        messageElement.innerHTML = `<strong>${sender} to ${receiver}:</strong> ${message.content}`;
-        messagesDiv.appendChild(messageElement);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight; // Auto-scroll to latest message
-    }
+      document.getElementById("send").addEventListener("click", () => {
+        const message = document.getElementById("message").value;
+        const target = document.getElementById("target").value;
+        socket.send(
+          JSON.stringify({ from: nickname, to: target, content: message })
+        );
+        document.getElementById("message").value = "";
+      });
     </script>
-</body>
+  </body>
 </html>
